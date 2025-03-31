@@ -24,6 +24,13 @@ Then set up the virtual environment and install dependencies:
    uv sync
    ```
 
+Alternatively, you can install dependencies using pip:
+```sh
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
 ## Usage
 ### 1. Start the SDN-Controller
 

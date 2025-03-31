@@ -11,25 +11,25 @@ Since Ryu is no longer maintained and there are difficulties installing it with 
 
 ## Setup
 ### 1. Clone the repository:
-   ```sh
-    git clone https://github.com/DLemming/sdn-firewall.git
-    cd sdn-firewall
-   ```
+```sh
+git clone https://github.com/DLemming/sdn-firewall.git
+cd sdn-firewall
+```
 ### 2. Install dependencies:
 Ensure you have ```uv``` installed. If not, installations instructions can be found [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
 Then set up the virtual environment and install dependencies:
-   ```sh
-   uv venv
-   uv sync
-   ```
+```sh
+uv venv
+uv sync
+```
 
 Alternatively, you can install dependencies using pip:
 ```sh
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 ## Usage
 ### 1. Start the SDN-Controller

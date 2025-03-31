@@ -26,8 +26,8 @@ Then set up the virtual environment and install dependencies:
 
 Alternatively, you can install dependencies using pip:
 ```sh
-   python3 -m venv venv
-   source venv/bin/activate
+   python3 -m venv .venv
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 

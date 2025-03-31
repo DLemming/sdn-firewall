@@ -66,6 +66,25 @@ Sending a request from e.g. h2 to h3 will fail:
 mininet> h2 wget h3  # won't work
 ```
 
+### 4. Add a custom Firewall Rule
+Within ```src/Firewall.py```, in the constructor, append the variable ```self.rules``` by another rule dictionary.
+
+E.g. to allow any communication between Host 1 and Host 3:
+```python
+self.rules = [ ... existing rules ... ,
+  {
+    'src_ip': "10.0.0.1",
+    'dst_ip': "10.0.0.3",
+    'src_port': "any",
+    'dst_port': "any"
+  }
+]
+```
+The reverse rule will be added automatically.
+
+
+
+
 
 ## Notes
 - Ensure that Open vSwitch (OVS) is installed and running.

@@ -4,6 +4,11 @@ A stateless Layer 4 SDN Firewall implemented using OS-Ken and OpenFlow.
 
 Since Ryu is no longer maintained and there are difficulties installing it with newer software, the open-source fork OS-Ken is used.
 
+## Grading
+1. Base Functionality: Firewall enforces IP-based traffic control — block or permit at Layer 3.
+2. Extended Functionality: Firewall enables port-specific traffic control — block or permit at Layer 4.
+3. Enhancement: Reverse rules are implicitly applied, eliminating the need for manual specification.
+
 ## Features
 - Stateless Layer 4 packet filtering
 - Automatically adds reverse paths for rules

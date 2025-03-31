@@ -1,6 +1,5 @@
 # SDN Firewall
 
-RepoLogo.png
 ![SDN Firewall Logo](src/RepoLogo.png)
 
 A stateless Layer 4 SDN Firewall implemented using OS-Ken and OpenFlow.

@@ -18,9 +18,8 @@ cd sdn-firewall
 ### 2. Install dependencies:
 Ensure you have ```uv``` installed. If not, installations instructions can be found [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer).
 
-Then set up the virtual environment and install dependencies:
+Then install all dependencies with:
 ```sh
-uv venv
 uv sync
 ```
 

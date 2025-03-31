@@ -3,7 +3,7 @@ from os_ken.controller import ofp_event
 from os_ken.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from os_ken.controller.handler import set_ev_cls
 from os_ken.ofproto import ofproto_v1_3
-from os_ken.lib.packet import packet, ethernet, ipv4, ipv6, ether_types, icmp
+from os_ken.lib.packet import packet, ethernet, ipv4, ether_types, icmp
 
 class SimpleFirewall(app_manager.OSKenApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -13,8 +13,20 @@ class SimpleFirewall(app_manager.OSKenApp):
         self.mac_to_port = {}
         self.ip_to_port = {}
         self.rules = [
-            # only allow traffic from h1 to h3
-            {'src_ip': "10.0.0.1", 'dst_ip': "10.0.0.3", 'dst_port': "any", 'src_port': "any"},
+            {
+                # allow http from h1 to h3
+                'src_ip': "10.0.0.1",
+                'dst_ip': "10.0.0.3",
+                'src_port': "any",
+                'dst_port': "80"
+            },
+            {
+                # allow ssh to h1
+                'src_ip': "any",
+                'dst_ip': "10.0.0.1",
+                'src_port': "any",
+                'dst_port': "22"
+            },
         ]
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -79,107 +91,82 @@ class SimpleFirewall(app_manager.OSKenApp):
             self.logger.info("[LLDP] Ignoring...")
             return
         
+        ### Ignore IPv6 ###
         if eth.ethertype == ether_types.ETH_TYPE_IPV6:
+            # IPv6 is not supported in this implementation
             self.logger.info("[IPv6] Ignoring...")
             return
 
         ### Handle ARP ###
         if eth.ethertype == ether_types.ETH_TYPE_ARP:
             self.logger.info(f"[ARP] Handling: %s to %s", src, dst)
-
-            self.handle_packet(msg, eth_type=0x0806)
+            self.send_packet(msg, eth_type=0x0806)
             return
         
         ### Handle ICMP ###
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         icmp_pkt = pkt.get_protocol(icmp.icmp)
         if ip_pkt and icmp_pkt:
-            self.logger.info("[ICMP] Handling: %s to %s)", ip_pkt.src, ip_pkt.dst)
+            self.logger.info("[ICMP] Handling: %s to %s", ip_pkt.src, ip_pkt.dst)
 
             self.ip_to_port.setdefault(dpid, {})
-            self.ip_to_port[dpid][ip_pkt.src] = in_port # learn IP @ port
-            self.handle_packet(msg, eth_type=0x0800, ip_proto=0x01)
+            self.ip_to_port[dpid][ip_pkt.src] = in_port # learn IP @ which port
+            self.send_packet(msg, eth_type=0x0800, ip_proto=0x01)
             return
         
-        ### Parse Firewall Rules ###
+        ### Install Firewall Rules ###
         priority=10
         for rule in self.rules:
             match_args = {'eth_type': 0x0800, 'ip_proto': 0x06}  # Default Ethernet and TCP
+            match_rev_args = match_args.copy() # Reverse match (for response packets)
 
             if rule["src_ip"] != "any":
                 match_args['ipv4_src'] = rule['src_ip']
+                match_rev_args['ipv4_dst'] = rule['src_ip']
             if rule['dst_ip'] != "any":
                 match_args['ipv4_dst'] = rule['dst_ip']
+                match_rev_args['ipv4_src'] = rule['dst_ip']
             if rule['src_port'] != "any":
                 match_args['tcp_src'] = int(rule['src_port'])
+                match_rev_args['tcp_dst'] = int(rule['src_port'])
             if rule['dst_port'] != "any":
                 match_args['tcp_dst'] = int(rule['dst_port'])
+                match_rev_args['tcp_src'] = int(rule['dst_port'])
 
             match = parser.OFPMatch(**match_args)
-
-            # Reverse match (for bidirectional rules)
-            match_rev_args = match_args.copy()
-            if 'ipv4_src' in match_args and 'ipv4_dst' in match_args:
-                match_rev_args['ipv4_src'], match_rev_args['ipv4_dst'] = match_args['ipv4_dst'], match_args['ipv4_src']
-            if 'tcp_src' in match_args and 'tcp_dst' in match_args:
-                match_rev_args['tcp_src'], match_rev_args['tcp_dst'] = match_args['tcp_dst'], match_args['tcp_src']
-            
             match_rev = parser.OFPMatch(**match_rev_args)
 
-            #print(f"Match: {match}")
-            #print(f"Reverse Match: {match_rev}")
-
-            out_port = ofproto.OFPP_FLOOD
-            actions = [parser.OFPActionOutput(out_port)]
-            #self.logger.info("Adding Flows for Forward Flow")
-            self.add_flow(datapath, priority, match, actions)
+            actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+            self.add_flow(datapath, priority, match, actions)       # Install Forward-Flow Rule
             priority += 1
 
-            actions_rev = [parser.OFPActionOutput(out_port)]
-            #self.logger.info("Adding Flows for Reverse Flow")
-            self.add_flow(datapath, priority, match_rev, actions_rev)
+            self.add_flow(datapath, priority, match_rev, actions)   # Install Backward-Flow Rule
             priority += 1
 
-            data = None
-            if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-                data = msg.data
-
-            #print("Sending PacketOut message")
-            out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)
-            datapath.send_msg(out)
-
-        # Log dropped packets that don't match any firewall rule
-        self.logger.info(f"[DROP] No matching firewall rule. Dropping {eth.ethertype} traffic.")
-        self.logger.info(f"    SRC MAC: {eth.src}, DST MAC: {eth.dst}")
-        if ip_pkt:
-            self.logger.info(f"    SRC IP: {ip_pkt.src}, DST IP: {ip_pkt.dst}")
-
+            self.send_packet(msg, eth_type=0x0800, ip_proto=0x06)  # TCP
 
         # Drop TCP traffic (if no firewall rule matched)
-        #self.logger.info("[TCP] dropped!")
         match = parser.OFPMatch(eth_type=0x0800, ip_proto=0x06)  # TCP traffic
         mod = parser.OFPFlowMod(datapath=datapath, priority=5,
                                 command=ofproto.OFPFC_ADD, match=match, instructions=[])
         datapath.send_msg(mod)
 
         # Drop UDP traffic (if no firewall rule matched)
-        #self.logger.info("[UDP] dropped!")
         match = parser.OFPMatch(eth_type=0x0800, ip_proto=0x17)  # UDP traffic
         mod = parser.OFPFlowMod(datapath=datapath, priority=4,
                                 command=ofproto.OFPFC_ADD, match=match, instructions=[])
         datapath.send_msg(mod)
 
-        # Forward all traffic (Default Allow Policy)
-        #actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-        #match = parser.OFPMatch(eth_src=src, eth_dst=dst)
-        #self.add_flow(datapath, 1, match, actions)
-        
-        #out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-        #                          in_port=in_port, actions=actions,
-        #                          data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None)
-        #datapath.send_msg(out)
+    def send_packet(self, msg, eth_type, ip_proto=None):
+        """
+        Send a packet out to the switch.
 
-    def handle_packet(self, msg, eth_type, ip_proto=None):
+        Args:
+            msg: The OpenFlow message.
+            eth_type: The Ethernet type.
+            ip_proto: The IP protocol (if applicable).
+        """
+
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser

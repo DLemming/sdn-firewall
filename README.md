@@ -1,5 +1,8 @@
 # SDN Firewall
 
+RepoLogo.png
+![SDN Firewall Logo](src/RepoLogo.png)
+
 A stateless Layer 4 SDN Firewall implemented using OS-Ken and OpenFlow.
 
 Since Ryu is no longer maintained and there are difficulties installing it with newer software, the open-source fork OS-Ken is used.

@@ -27,10 +27,17 @@ class SimpleFirewall(app_manager.OSKenApp):
                 'src_port': "any",
                 'dst_port': "22"
             },
+            # add more rules here ...
         ]
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
+        """
+        Handle switch features and install a table-miss flow entry.
+        Args:
+            ev: The OpenFlow switch features event.
+        """
+
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -51,9 +58,6 @@ class SimpleFirewall(app_manager.OSKenApp):
             match: The match criteria for the flow entry.
             actions: The actions to be performed on matching packets.
             buffer_id: The buffer ID of the packet (if applicable).
-
-        Returns:
-            None
         """
         
         ofproto = datapath.ofproto
@@ -71,8 +75,12 @@ class SimpleFirewall(app_manager.OSKenApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
+        """
+        Handle incoming packets and apply firewall rules.
+        Args:
+            ev: The OpenFlow packet-in event.
+        """
 
-        # Fetch all the information from the event
         msg = ev.msg
         datapath = msg.datapath
         in_port = msg.match['in_port']

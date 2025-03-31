@@ -1,0 +1,10 @@
+[project]
+name = "acn"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mininet>=2.3.0.dev6",
+    "os-ken>=3.0.1",
+]

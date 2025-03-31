@@ -36,6 +36,12 @@ def run():
     net.start()
     
     print("Firewall Topology started. You can now configure the OpenFlow rules in your controller.")
+
+    # IPv6 auf allen Hosts deaktivieren
+    for host in net.hosts:
+        host.cmd("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+        host.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
+        host.cmd("sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
     
     CLI(net)  # Interaktive Shell starten
     net.stop()
